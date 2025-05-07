@@ -1,7 +1,9 @@
 // server.js
 
-// 1) Load .env (and Railway’s vars) before anything else
-require('dotenv').config();
+// 1) Load .env only in development so you don't override Railway’s PORT
+if (process.env.NODE_ENV !== 'production') {
+  require('dotenv').config();
+}
 
 const express = require('express');
 const bcrypt  = require('bcrypt');
@@ -27,7 +29,7 @@ connection.connect(err => {
   console.log('✅ MySQL connected!');
 });
 
-// Serve uploads
+// Static files for uploads
 app.use('/VIPCinema/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // JWT middleware
@@ -42,7 +44,7 @@ const verifyToken = (req, res, next) => {
   });
 };
 
-// Multer setup for profile pics
+// Multer setup for profile pictures
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const dir = path.join(__dirname, 'uploads');
@@ -56,56 +58,67 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-// API Router
+// API routes
 const apiRouter = express.Router();
 
-// 🔹 Get all films
+// Get all films
 apiRouter.get('/films', (req, res) => {
-  connection.query('SELECT * FROM films ORDER BY popularity DESC LIMIT 20', (err, results) => {
-    if (err) return res.status(500).json({ message: 'Erreur récupération films.' });
-    res.json(results);
-  });
+  connection.query(
+    'SELECT * FROM films ORDER BY popularity DESC LIMIT 20',
+    (err, results) => {
+      if (err) return res.status(500).json({ message: 'Erreur récupération films.' });
+      res.json(results);
+    }
+  );
 });
 
-// 🔹 Register
+// Register
 apiRouter.post('/register', (req, res) => {
   const { name, email, password } = req.body;
-  connection.query('SELECT * FROM users WHERE email = ?', [email], (err, results) => {
-    if (err) return res.status(500).json({ message: 'Erreur recherche email.' });
-    if (results.length > 0) return res.status(409).json({ message: 'Email déjà utilisé.' });
+  connection.query(
+    'SELECT * FROM users WHERE email = ?',
+    [email],
+    (err, results) => {
+      if (err) return res.status(500).json({ message: 'Erreur recherche email.' });
+      if (results.length > 0) return res.status(409).json({ message: 'Email déjà utilisé.' });
 
-    bcrypt.hash(password, 10, (err, hash) => {
-      if (err) return res.status(500).json({ message: 'Erreur hash mot de passe.' });
-      connection.query(
-        'INSERT INTO users (name, email, password) VALUES (?, ?, ?)',
-        [name, email, hash],
-        err => {
-          if (err) return res.status(500).json({ message: 'Erreur enregistrement utilisateur.' });
-          res.status(201).json({ message: 'Compte créé avec succès.' });
-        }
-      );
-    });
-  });
+      bcrypt.hash(password, 10, (err, hash) => {
+        if (err) return res.status(500).json({ message: 'Erreur hash mot de passe.' });
+        connection.query(
+          'INSERT INTO users (name, email, password) VALUES (?, ?, ?)',
+          [name, email, hash],
+          err => {
+            if (err) return res.status(500).json({ message: 'Erreur enregistrement utilisateur.' });
+            res.status(201).json({ message: 'Compte créé avec succès.' });
+          }
+        );
+      });
+    }
+  );
 });
 
-// 🔹 Login
+// Login
 apiRouter.post('/login', (req, res) => {
   const { email, password } = req.body;
-  connection.query('SELECT * FROM users WHERE email = ?', [email], (err, results) => {
-    if (err) return res.status(500).json({ message: 'Erreur serveur.' });
-    if (results.length === 0) return res.status(404).json({ message: 'Utilisateur non trouvé.' });
+  connection.query(
+    'SELECT * FROM users WHERE email = ?',
+    [email],
+    (err, results) => {
+      if (err) return res.status(500).json({ message: 'Erreur serveur.' });
+      if (results.length === 0) return res.status(404).json({ message: 'Utilisateur non trouvé.' });
 
-    const user = results[0];
-    bcrypt.compare(password, user.password, (err, isMatch) => {
-      if (err || !isMatch) return res.status(401).json({ message: 'Mot de passe incorrect.' });
+      const user = results[0];
+      bcrypt.compare(password, user.password, (err, isMatch) => {
+        if (err || !isMatch) return res.status(401).json({ message: 'Mot de passe incorrect.' });
 
-      const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
-      res.json({ message: 'Connexion réussie.', token });
-    });
-  });
+        const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+        res.json({ message: 'Connexion réussie.', token });
+      });
+    }
+  );
 });
 
-// 🔹 Rent a film
+// Rent a film
 apiRouter.post('/rent', verifyToken, (req, res) => {
   const { filmId } = req.body;
   if (!filmId) return res.status(400).json({ message: 'ID du film requis.' });
@@ -115,7 +128,6 @@ apiRouter.post('/rent', verifyToken, (req, res) => {
     [req.user.id],
     (err, results) => {
       if (err) return res.status(500).json({ message: 'Erreur serveur.' });
-
       if (results[0].count >= 5) return res.status(400).json({ message: 'Maximum 5 films loués.' });
 
       connection.query(
@@ -139,7 +151,7 @@ apiRouter.post('/rent', verifyToken, (req, res) => {
   );
 });
 
-// 🔹 Return a film
+// Return a film
 apiRouter.post('/return', verifyToken, (req, res) => {
   const { filmId } = req.body;
   connection.query(
@@ -153,7 +165,7 @@ apiRouter.post('/return', verifyToken, (req, res) => {
   );
 });
 
-// 🔹 View profile
+// View profile
 apiRouter.get('/profile', verifyToken, (req, res) => {
   connection.query(
     'SELECT name, email, profile_picture FROM users WHERE id = ?',
@@ -166,7 +178,7 @@ apiRouter.get('/profile', verifyToken, (req, res) => {
   );
 });
 
-// 🔹 Rented movies
+// Rented movies
 apiRouter.get('/rented-movies', verifyToken, (req, res) => {
   connection.query(
     `SELECT f.id AS film_id, f.title, f.poster_path, r.rental_date
@@ -182,16 +194,20 @@ apiRouter.get('/rented-movies', verifyToken, (req, res) => {
   );
 });
 
-// 🔹 Upload profile picture
+// Upload profile picture
 apiRouter.post('/upload-profile-picture', verifyToken, upload.single('profilePicture'), (req, res) => {
   const imagePath = `/uploads/${req.file.filename}`;
-  connection.query('UPDATE users SET profile_picture = ? WHERE id = ?', [imagePath, req.user.id], err => {
-    if (err) return res.status(500).json({ message: 'Erreur upload photo.' });
-    res.json({ message: 'Photo de profil mise à jour.', path: imagePath });
-  });
+  connection.query(
+    'UPDATE users SET profile_picture = ? WHERE id = ?',
+    [imagePath, req.user.id],
+    err => {
+      if (err) return res.status(500).json({ message: 'Erreur upload photo.' });
+      res.json({ message: 'Photo de profil mise à jour.', path: imagePath });
+    }
+  );
 });
 
-// 🔹 Update profile
+// Update profile
 apiRouter.put('/update-profile', verifyToken, (req, res) => {
   const { name, email, password } = req.body;
   if (!name || !email) return res.status(400).json({ message: 'Nom et email requis.' });
@@ -224,12 +240,10 @@ apiRouter.put('/update-profile', verifyToken, (req, res) => {
   }
 });
 
-// Test API
-apiRouter.get('/', (req, res) => {
-  res.send('API is working!');
-});
+// Test endpoint
+apiRouter.get('/', (req, res) => res.send('API is working!'));
 
-// Mount API and static front
+// Mount router and static frontend
 app.use('/VIPCinema/api', apiRouter);
 app.use('/VIPCinema', express.static(path.join(__dirname)));
 
@@ -238,6 +252,6 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// Start server
+// Start server on Railway’s PORT or fallback to 5000
 const port = process.env.PORT || 5000;
 app.listen(port, () => console.log(`Server running on port ${port}`));

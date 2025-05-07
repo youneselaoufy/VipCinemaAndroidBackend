@@ -1,4 +1,5 @@
 // config_mysql.js
+
 module.exports = {
   host:     process.env.DB_HOST
            || process.env.MYSQL_HOST
@@ -12,10 +13,10 @@ module.exports = {
   database: process.env.DB_NAME
            || process.env.MYSQL_DATABASE
            || process.env.MYSQLDATABASE,
-  port:     parseInt(
+  port:     Number(
              process.env.DB_PORT
              || process.env.MYSQL_PORT
-             || process.env.MYSQLPORT,
-             10
-           ) || 3306
+             || process.env.MYSQLPORT
+             || 3306
+           )
 };
