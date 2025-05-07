@@ -1,15 +1,17 @@
+// server.js
+
+// 1) Load environment variables before anything else
+require('dotenv').config();
+
 const express = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const dotenv = require('dotenv');
 const cors = require('cors');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const mysql = require('mysql2');
 const dbConfig = require('./config_mysql');
-
-dotenv.config();
 
 const app = express();
 app.use(cors());
@@ -74,10 +76,14 @@ apiRouter.post('/register', (req, res) => {
 
     bcrypt.hash(password, 10, (err, hash) => {
       if (err) return res.status(500).json({ message: 'Erreur hash mot de passe.' });
-      connection.query('INSERT INTO users (name, email, password) VALUES (?, ?, ?)', [name, email, hash], err => {
-        if (err) return res.status(500).json({ message: 'Erreur enregistrement utilisateur.' });
-        res.status(201).json({ message: 'Compte créé avec succès.' });
-      });
+      connection.query(
+        'INSERT INTO users (name, email, password) VALUES (?, ?, ?)',
+        [name, email, hash],
+        err => {
+          if (err) return res.status(500).json({ message: 'Erreur enregistrement utilisateur.' });
+          res.status(201).json({ message: 'Compte créé avec succès.' });
+        }
+      );
     });
   });
 });
@@ -104,21 +110,33 @@ apiRouter.post('/rent', verifyToken, (req, res) => {
   const { filmId } = req.body;
   if (!filmId) return res.status(400).json({ message: 'ID du film requis.' });
 
-  connection.query('SELECT COUNT(*) AS count FROM rentals WHERE user_id = ? AND return_date IS NULL', [req.user.id], (err, results) => {
-    if (err) return res.status(500).json({ message: 'Erreur serveur.' });
+  connection.query(
+    'SELECT COUNT(*) AS count FROM rentals WHERE user_id = ? AND return_date IS NULL',
+    [req.user.id],
+    (err, results) => {
+      if (err) return res.status(500).json({ message: 'Erreur serveur.' });
 
-    if (results[0].count >= 5) return res.status(400).json({ message: 'Maximum 5 films loués.' });
+      if (results[0].count >= 5) return res.status(400).json({ message: 'Maximum 5 films loués.' });
 
-    connection.query('SELECT * FROM rentals WHERE user_id = ? AND film_id = ? AND return_date IS NULL', [req.user.id, filmId], (err, rows) => {
-      if (err) return res.status(500).json({ message: 'Erreur vérification location.' });
-      if (rows.length > 0) return res.status(400).json({ message: 'Film déjà loué.' });
+      connection.query(
+        'SELECT * FROM rentals WHERE user_id = ? AND film_id = ? AND return_date IS NULL',
+        [req.user.id, filmId],
+        (err, rows) => {
+          if (err) return res.status(500).json({ message: 'Erreur vérification location.' });
+          if (rows.length > 0) return res.status(400).json({ message: 'Film déjà loué.' });
 
-      connection.query('INSERT INTO rentals (user_id, film_id, rental_date) VALUES (?, ?, NOW())', [req.user.id, filmId], err => {
-        if (err) return res.status(500).json({ message: 'Erreur location film.' });
-        res.json({ message: 'Film loué avec succès.' });
-      });
-    });
-  });
+          connection.query(
+            'INSERT INTO rentals (user_id, film_id, rental_date) VALUES (?, ?, NOW())',
+            [req.user.id, filmId],
+            err => {
+              if (err) return res.status(500).json({ message: 'Erreur location film.' });
+              res.json({ message: 'Film loué avec succès.' });
+            }
+          );
+        }
+      );
+    }
+  );
 });
 
 // 🔹 Return a film
@@ -137,11 +155,15 @@ apiRouter.post('/return', verifyToken, (req, res) => {
 
 // 🔹 View profile
 apiRouter.get('/profile', verifyToken, (req, res) => {
-  connection.query('SELECT name, email, profile_picture FROM users WHERE id = ?', [req.user.id], (err, results) => {
-    if (err) return res.status(500).json({ message: 'Erreur serveur.' });
-    if (results.length === 0) return res.status(404).json({ message: 'Utilisateur introuvable.' });
-    res.json(results[0]);
-  });
+  connection.query(
+    'SELECT name, email, profile_picture FROM users WHERE id = ?',
+    [req.user.id],
+    (err, results) => {
+      if (err) return res.status(500).json({ message: 'Erreur serveur.' });
+      if (results.length === 0) return res.status(404).json({ message: 'Utilisateur introuvable.' });
+      res.json(results[0]);
+    }
+  );
 });
 
 // 🔹 Rented movies
@@ -175,19 +197,27 @@ apiRouter.put('/update-profile', verifyToken, (req, res) => {
   if (!name || !email) return res.status(400).json({ message: 'Nom et email requis.' });
 
   const updateUser = () => {
-    connection.query('UPDATE users SET name = ?, email = ? WHERE id = ?', [name, email, req.user.id], err => {
-      if (err) return res.status(500).json({ message: 'Erreur mise à jour.' });
-      res.json({ message: 'Profil mis à jour.' });
-    });
+    connection.query(
+      'UPDATE users SET name = ?, email = ? WHERE id = ?',
+      [name, email, req.user.id],
+      err => {
+        if (err) return res.status(500).json({ message: 'Erreur mise à jour.' });
+        res.json({ message: 'Profil mis à jour.' });
+      }
+    );
   };
 
   if (password) {
     bcrypt.hash(password, 10, (err, hash) => {
       if (err) return res.status(500).json({ message: 'Erreur hash mot de passe.' });
-      connection.query('UPDATE users SET password = ? WHERE id = ?', [hash, req.user.id], err => {
-        if (err) return res.status(500).json({ message: 'Erreur mise à jour mot de passe.' });
-        updateUser();
-      });
+      connection.query(
+        'UPDATE users SET password = ? WHERE id = ?',
+        [hash, req.user.id],
+        err => {
+          if (err) return res.status(500).json({ message: 'Erreur mise à jour mot de passe.' });
+          updateUser();
+        }
+      );
     });
   } else {
     updateUser();
