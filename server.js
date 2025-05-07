@@ -1,36 +1,36 @@
 // server.js
 
-// 1) Load environment variables before anything else
+// 1) Load .env (and Railway’s vars) before anything else
 require('dotenv').config();
 
 const express = require('express');
-const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
-const cors = require('cors');
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
-const mysql = require('mysql2');
+const bcrypt  = require('bcrypt');
+const jwt     = require('jsonwebtoken');
+const cors    = require('cors');
+const multer  = require('multer');
+const path    = require('path');
+const fs      = require('fs');
+const mysql   = require('mysql2');
 const dbConfig = require('./config_mysql');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Database MySQL
+// MySQL connection
 const connection = mysql.createConnection(dbConfig);
 connection.connect(err => {
   if (err) {
-    console.error("❌ MySQL connection error:", err.message);
+    console.error('❌ MySQL connection error:', err.message);
     process.exit(1);
   }
-  console.log("✅ MySQL connected!");
+  console.log('✅ MySQL connected!');
 });
 
-// Static files
+// Serve uploads
 app.use('/VIPCinema/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// JWT Middleware
+// JWT middleware
 const verifyToken = (req, res, next) => {
   const authHeader = req.headers.authorization;
   if (!authHeader) return res.status(401).json({ message: 'Token is missing.' });
@@ -42,7 +42,7 @@ const verifyToken = (req, res, next) => {
   });
 };
 
-// Multer setup
+// Multer setup for profile pics
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const dir = path.join(__dirname, 'uploads');
@@ -229,7 +229,7 @@ apiRouter.get('/', (req, res) => {
   res.send('API is working!');
 });
 
-// Mount API
+// Mount API and static front
 app.use('/VIPCinema/api', apiRouter);
 app.use('/VIPCinema', express.static(path.join(__dirname)));
 
