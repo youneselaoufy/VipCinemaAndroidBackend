@@ -20,7 +20,16 @@ app.use(cors());
 app.use(express.json());
 
 // MySQL connection
-const connection = mysql.createConnection(dbConfig);
+console.log("📦 MYSQL ENV", {
+  MYSQLHOST: process.env.MYSQLHOST,
+  MYSQLUSER: process.env.MYSQLUSER,
+  MYSQLPASSWORD: process.env.MYSQLPASSWORD ? "***" : null,
+  MYSQLDATABASE: process.env.MYSQLDATABASE,
+  MYSQLPORT: process.env.MYSQLPORT,
+});
+
+const connection = mysql.createConnection(require('./config_mysql'));
+
 connection.connect(err => {
   if (err) {
     console.error('❌ MySQL connection error:', err.message);
@@ -28,6 +37,7 @@ connection.connect(err => {
   }
   console.log('✅ MySQL connected!');
 });
+
 
 // Static files for uploads
 app.use('/VIPCinema/uploads', express.static(path.join(__dirname, 'uploads')));
